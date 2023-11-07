@@ -7,13 +7,17 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 )
 
-const apiKey = "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"
+var apiKey = os.Getenv("CHATGPT_KEY")
+
 const endpoint = "https://api.openai.com/v1/chat/completions"
 
 func main() {
-	http.HandleFunc("/chat", handleChat)
+
+	http.HandleFunc("/article", handleArticle)
+	http.HandleFunc("/sentence", handleSentence)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -30,17 +34,30 @@ type ClientRequest struct {
 	Message string `json:"message"`
 }
 
-func handleChat(w http.ResponseWriter, r *http.Request) {
+type ChatCompletion struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
+}
+
+type JSONResponse struct {
+	Text string   `json:"text"`
+	Tags []string `json:"tags"`
+}
+
+func handleArticle(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
+
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Ошибка чтения тела запроса"))
-		return
+
 	}
 
 	messages := &ClientRequest{}
@@ -48,14 +65,21 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Ошибка десериализации тела запроса"))
-		return
-	}
 
-	fmt.Println(messages)
+	}
 
 	gptBodyReq := GPTBodyReq{
 		Model: "gpt-3.5-turbo",
 		Messages: []Message{
+			{
+				Role: "system",
+				Content: "Write summarize about this article " +
+					"and write five tags as JSON Array about this article. Do it on Russian" +
+					"Structure of ur answer is JSON:" +
+					"{\"text\": " +
+					"\"tags\": " +
+					"}",
+			},
 			{
 				Role:    "user",
 				Content: messages.Message,
@@ -69,16 +93,14 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Ошибка сериализации тела запроса"))
-		return
-	}
 
-	fmt.Println(gptBodyReq)
+	}
 
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(gptBodyReqBytes))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Ошибка создания запроса"))
-		return
+
 	}
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -87,11 +109,6 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Ошибка отправки запроса к API"))
-		return
-	}
 	defer resp.Body.Close()
 
 	responseBody, err := ioutil.ReadAll(resp.Body)
@@ -102,7 +119,42 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var chatCompletion ChatCompletion
+	if err := json.Unmarshal([]byte(responseBody), &chatCompletion); err != nil {
+		fmt.Println("Ошибка разбора JSON:", err)
+		return
+	}
+
+	var jsonResponse JSONResponse
+	if len(chatCompletion.Choices) > 0 {
+		content := chatCompletion.Choices[0].Message.Content
+		json.Unmarshal([]byte(content), &jsonResponse)
+
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(responseBody)
+
+	b, _ := json.Marshal(jsonResponse)
+
+	w.Write(b)
 }
+
+func handleSentence(w http.ResponseWriter, r *http.Request) {
+
+}
+
+var cyberleninkasearchendpoint string
+
+//func sendToCyberleninka(tags []string) {
+//
+//	req, _ := http.NewRequest("GET", cyberleninkasearchendpoint, bytes.NewReader([]byte("")))
+//
+//	client := &http.Client{}
+//	resp, _ := client.Do(req)
+//
+//}
+
+//func requestBuilder(w http.ResponseWriter, r *http.Request) *http.Response {
+//
+//}
