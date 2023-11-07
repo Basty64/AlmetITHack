@@ -20,3 +20,4 @@ while True:
 	messages.append({"role": "assistant", "content": reply})
 
 
+
