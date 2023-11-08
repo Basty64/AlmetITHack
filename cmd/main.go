@@ -48,6 +48,17 @@ type JSONResponse struct {
 }
 
 func handleArticle(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	if r.Method == "OPTIONS" {
+		// Обработка предварительного запроса (preflight request)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 
@@ -63,7 +74,7 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 	messages := &ClientRequest{}
 	err = json.Unmarshal(body, &messages)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		//w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Ошибка десериализации тела запроса"))
 
 	}
@@ -77,7 +88,7 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 					"and write five tags as JSON Array about this article. Do it on Russian" +
 					"Structure of ur answer is JSON:" +
 					"{\"text\": " +
-					"\"tags\": " +
+					",\"tags\": " +
 					"}",
 			},
 			{
@@ -128,13 +139,12 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 	var jsonResponse JSONResponse
 	if len(chatCompletion.Choices) > 0 {
 		content := chatCompletion.Choices[0].Message.Content
+		fmt.Println(content)
 		json.Unmarshal([]byte(content), &jsonResponse)
 
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
+	fmt.Println(jsonResponse)
 	b, _ := json.Marshal(jsonResponse)
 
 	w.Write(b)
