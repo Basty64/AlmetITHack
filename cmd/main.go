@@ -15,9 +15,12 @@ var apiKey = os.Getenv("CHATGPT_KEY")
 const endpoint = "https://api.openai.com/v1/chat/completions"
 
 func main() {
-
-	http.HandleFunc("/article", handleArticle)
-	http.HandleFunc("/sentence", handleSentence)
+	var jsonResponse JSONResponse
+	var tags []string
+	tags = append(tags, "IoT", "security")
+	jsonResponse.sendToCrossref(tags)
+	//http.HandleFunc("/article", handleArticle)
+	//http.HandleFunc("/sentence", handleSentence)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -43,8 +46,17 @@ type ChatCompletion struct {
 }
 
 type JSONResponse struct {
-	Text string   `json:"text"`
-	Tags []string `json:"tags"`
+	Text  string     `json:"text"`
+	Tags  []string   `json:"tags"`
+	Links []Articles `json:"links"`
+}
+type Articles struct {
+	Message struct {
+		Items []struct {
+			Title []string `json:"title"`
+			URL   string   `json:"URL"`
+		} `json:"items"`
+	} `json:"message"`
 }
 
 func handleArticle(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +66,7 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	if r.Method == "OPTIONS" {
-		// Обработка предварительного запроса (preflight request)
+
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -144,6 +156,8 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	jsonResponse.sendToCrossref(jsonResponse.Tags)
+
 	fmt.Println(jsonResponse)
 	b, _ := json.Marshal(jsonResponse)
 
@@ -154,16 +168,29 @@ func handleSentence(w http.ResponseWriter, r *http.Request) {
 
 }
 
-var cyberleninkasearchendpoint string
+func (jsonresp *JSONResponse) sendToCrossref(tags []string) {
+	//
+	crossrefendpoint := "https://api.crossref.org/works?select=title,URL,type&rows=2&filter=type:journal-article&query=" + tags[0]
+	var res string
+	for i := 1; i < len(tags); i++ {
+		res += "," + tags[i]
+	}
+	crossrefendpoint += res
+	fmt.Println(crossrefendpoint)
+	req, _ := http.NewRequest("GET", crossrefendpoint, bytes.NewReader([]byte("")))
 
-//func sendToCyberleninka(tags []string) {
-//
-//	req, _ := http.NewRequest("GET", cyberleninkasearchendpoint, bytes.NewReader([]byte("")))
-//
-//	client := &http.Client{}
-//	resp, _ := client.Do(req)
-//
-//}
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	var articles Articles
+	body, _ := ioutil.ReadAll(resp.Body)
+	if err := json.Unmarshal([]byte(body), &articles); err != nil {
+		fmt.Println("Ошибка разбора JSON:", err)
+		return
+	}
+
+	jsonresp.Links = append(jsonresp.Links, articles)
+	fmt.Println(jsonresp.Links)
+}
 
 //func requestBuilder(w http.ResponseWriter, r *http.Request) *http.Response {
 //
