@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 )
 
 var apiKey = os.Getenv("CHATGPT_KEY")
@@ -17,10 +19,10 @@ const endpoint = "https://api.openai.com/v1/chat/completions"
 func main() {
 	var jsonResponse JSONResponse
 	var tags []string
-	tags = append(tags, "IoT", "security")
+	tags = append(tags, "IoT", "security", "Блокчейн")
 	jsonResponse.sendToCrossref(tags)
-	//http.HandleFunc("/article", handleArticle)
-	//http.HandleFunc("/sentence", handleSentence)
+	http.HandleFunc("/article", handleArticle)
+	http.HandleFunc("/sentence", handleSentence)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -53,8 +55,9 @@ type JSONResponse struct {
 type Articles struct {
 	Message struct {
 		Items []struct {
-			Title []string `json:"title"`
-			URL   string   `json:"URL"`
+			Title    []string `json:"title"`
+			URL      string   `json:"URL"`
+			Abstract string   `json:"abstract"`
 		} `json:"items"`
 	} `json:"message"`
 }
@@ -96,8 +99,8 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 		Messages: []Message{
 			{
 				Role: "system",
-				Content: "Write summarize about this article " +
-					"and write five tags as JSON Array about this article. Do it on Russian" +
+				Content: "Write summarize about this article. Do it on Russian" +
+					"and write five tags as JSON Array about this article. Tags do in English" +
 					"Structure of ur answer is JSON:" +
 					"{\"text\": " +
 					",\"tags\": " +
@@ -158,7 +161,6 @@ func handleArticle(w http.ResponseWriter, r *http.Request) {
 
 	jsonResponse.sendToCrossref(jsonResponse.Tags)
 
-	fmt.Println(jsonResponse)
 	b, _ := json.Marshal(jsonResponse)
 
 	w.Write(b)
@@ -170,13 +172,17 @@ func handleSentence(w http.ResponseWriter, r *http.Request) {
 
 func (jsonresp *JSONResponse) sendToCrossref(tags []string) {
 	//
-	crossrefendpoint := "https://api.crossref.org/works?select=title,URL,type&rows=2&filter=type:journal-article&query=" + tags[0]
-	var res string
-	for i := 1; i < len(tags); i++ {
-		res += "," + tags[i]
+
+	tagsEncoded := make([]string, len(tags))
+	for i, tag := range tags {
+		tagsEncoded[i] = url.QueryEscape(tag)
 	}
-	crossrefendpoint += res
-	fmt.Println(crossrefendpoint)
+
+	crossrefendpoint := "https://api.crossref.org/works?select=title,URL,type,abstract&rows=10&filter=type:journal-article,has-abstract:1&query=" + tagsEncoded[0]
+
+	if len(tagsEncoded) > 1 {
+		crossrefendpoint += "," + strings.Join(tagsEncoded[1:], ",")
+	}
 	req, _ := http.NewRequest("GET", crossrefendpoint, bytes.NewReader([]byte("")))
 
 	client := &http.Client{}
@@ -189,7 +195,7 @@ func (jsonresp *JSONResponse) sendToCrossref(tags []string) {
 	}
 
 	jsonresp.Links = append(jsonresp.Links, articles)
-	fmt.Println(jsonresp.Links)
+
 }
 
 //func requestBuilder(w http.ResponseWriter, r *http.Request) *http.Response {
