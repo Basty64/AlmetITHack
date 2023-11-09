@@ -36,3 +36,47 @@
     transform: rotate(360deg);
   }
 }
+.input-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.message-input {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.send-button {
+  font-size: 16px;
+  background-color: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 10px 20px;
+}
+
+.response-container {
+  border: 1px solid #ccc;
+  padding: 20px;
+}
+
+.response-text {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+
+.response-tags {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.links-heading {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
